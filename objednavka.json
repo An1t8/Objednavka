@@ -1,0 +1,4 @@
+{
+  "id": "objednavka1",
+  "callbackUrl": "http://localhost:3001/update"
+}

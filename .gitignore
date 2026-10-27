@@ -1,0 +1,11 @@
+node_modules/
+.idea/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.env.*
+!.env.example
+npm-debug.log*

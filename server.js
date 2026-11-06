@@ -1,22 +1,41 @@
 const express = require("express");
+const crypto = require("crypto");
 
 process.loadEnvFile();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
+const SHARED_SECRET = process.env.SHARED_SECRET;
+
+if (!SHARED_SECRET) {
+  throw new Error("SHARED_SECRET is not configured");
+}
+
+app.use(express.json());
 
 async function sendWebhook(order, status) {
+  const payload = {
+    event_id: `${order.eventPrefix}-${status}`,
+    id: order.id,
+    status,
+  };
+
+  const body = JSON.stringify(payload);
+
+  const signature = crypto
+    .createHmac("sha256", SHARED_SECRET)
+    .update(body, "utf8")
+    .digest("hex");
+
   try {
     const response = await fetch(order.callbackURL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Signature": signature,
       },
-      body: JSON.stringify({
-        id: order.id,
-        status,
-      }),
+      body,
     });
 
     console.log(`${order.id}: ${status} (HTTP ${response.status})`);
@@ -38,6 +57,8 @@ app.post("/order", (req, res) => {
     return res.sendStatus(400);
   }
 
+  order.eventPrefix = crypto.randomUUID();
+
   res.status(202).end();
 
   setTimeout(() => {
@@ -51,10 +72,6 @@ app.post("/order", (req, res) => {
   setTimeout(() => {
     sendWebhook(order, "Doručeno");
   }, 15000);
-});
-
-app.listen(PORT, () => {
-  console.log(`Kurýrní server běží na http://localhost:${PORT}`);
 });
 
 app.listen(PORT, HOST, () => {

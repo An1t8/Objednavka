@@ -1,37 +1,45 @@
-# Objednavka
+# Kurýrní server
+Kurýrní server přijímá objednávky od restaurace a posílá jí změny jejich stavu.
 
-Kurýrní server pro první úlohu komunikace mezi restaurací a kurýrem.
+## Předání objednávky
 
-## Spuštění
+Restaurace pošle kurýrnímu serveru požadavek `POST /order`. V těle pošle `id` objednávky a `callbackURL`, na kterou má kurýrní server hlásit změny stavu. Pokud kurýrní server odpoví `202 Accepted`, restaurace nastaví stav objednávky na `Accepted`.
 
-Je potřeba Node.js 18 nebo novější. Ve složce projektu spusťte:
+## Změna stavu objednávky
 
-```sh
-npm install
-npm start
-```
+Kurýrní server pošle na `callbackURL` požadavek `POST /update` s těmito údaji.
 
-Server běží na `http://localhost:3000`.
+- `event_id` – unikátní ID události, podle kterého restaurace pozná opakované doručení.
+- `id` – ID objednávky.
+- `status` – nový stav objednávky.
 
-## Formát objednávky
+Všechny tři hodnoty musí být neprázdné řetězce. Požadavek musí mít platný podpis v hlavičce `X-Signature`. Kurýrní server ho vypočítá z původního těla požadavku pomocí HMAC-SHA256 a klíče `SHARED_SECRET` a pošle ho v šestnáctkovém formátu.
 
-```json
-{
-  "id": "objednavka1",
-  "callbackUrl": "http://localhost:3001/update"
-}
-```
+Restaurace vrátí `200` po uložení změny i při opakovaném doručení stejné události. Při neplatném podpisu vrátí `401` a při neplatných údajích `400`.
 
-`id` je unikátní identifikátor objednávky. `callbackUrl` je adresa restaurace pro budoucí aktualizace stavu; v této úloze se ještě nepoužívá.
+## Nastavení a spuštění
 
-## Ověření
+Pro spuštění restauračního serveru potřebuješ Node.js a npm. Příklad počítá s tím, že oba servery běží na stejném počítači.
 
-V druhém terminálu ve složce projektu spusťte:
+1. Ve složce `Restaurant-Server` vytvoř vedle `server.js` soubor `.env`.
 
-```sh
-curl -i -X POST http://localhost:3000/order \
-  -H 'Content-Type: application/json' \
-  --data @objednavka.json
-```
+   ```env
+   RESTAURANT_HOST=127.0.0.1
+   PORT=3001
+   COURIER_HOST=127.0.0.1
+   COURIER_PORT=3000
+   SHARED_SECRET=nahraď-vlastním-klíčem
+   ```
 
-Server vypíše přijatou objednávku a vrátí HTTP `202 Accepted` s prázdným tělem odpovědi.
+   `RESTAURANT_HOST` je adresa restaurace pro hlášení změn a `COURIER_HOST` je adresa kurýrního serveru. Pokud servery běží na různých počítačích, použij jejich síťové adresy. Oba servery musí mít stejnou hodnotu `SHARED_SECRET`.
+
+2. Spusť kurýrní server podle návodu k jeho projektu. V tomto příkladu má běžet na portu `3000`. Repozitář `Restaurant-Server` obsahuje kód restauračního serveru.
+
+3. Ve složce `Restaurant-Server` nainstaluj závislosti a spusť restaurační server.
+
+   ```bash
+   npm ci
+   node server.js
+   ```
+
+4. Otevři v prohlížeči `http://127.0.0.1:3001`.
